@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "vivarium",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4317", "--directory", "/Users/anya/Projects/geometry-lab"],
+      "port": 4317
+    }
+  ]
+}

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en" class="">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>I probed Gemma-4-12B the day it dropped — The Vivarium</title>
+<meta name="description" content="A day-zero hidden-state scan of Gemma-4-12B: six probes, one concept zone at L18–27, and what it means when every instrument lands in the same place.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230E141A'/%3E%3Cpath d='M6 16 H15' stroke='%236F7C88' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M15 16 L26 9' stroke='%236FCBD8' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M15 16 L26 23' stroke='%23E3C24A' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Ccircle cx='15' cy='16' r='2.6' fill='%23ECEFF3'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0E141A;--bg2:#141D26;--ink:#DCE4EC;--ink2:#A4B0BC;--muted:#6F7C88;
+  --rule:#1C2630;--rule2:#27323D;
+  --acc:#4FB2C2;--acc2:#6FCBD8;--citron:#E3C24A;--violet:#B98AD6;
+}
+html.light{
+  --bg:#EDF1F4;--bg2:#E3E9EE;--ink:#16222C;--ink2:#3A4853;--muted:#69757F;
+  --rule:#CBD5DD;--rule2:#D8E0E6;
+  --acc:#2E7E94;--acc2:#2E7E94;--citron:#9A7A12;--violet:#7A52A8;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--ink);font-family:Newsreader,Georgia,serif;font-size:17px;line-height:1.76;transition:background .25s,color .25s}
+a{color:var(--acc);text-decoration:none}
+a:hover{text-decoration:underline}
+.mono{font-family:'JetBrains Mono',monospace}
+b{font-weight:600}
+em{font-style:italic}
+
+.labnav{display:flex;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--rule2);font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.06em;position:sticky;top:0;z-index:100;background:color-mix(in srgb,var(--bg) 90%,transparent);backdrop-filter:blur(8px)}
+.labnav a{display:block;padding:.6rem 1rem;color:var(--ink2);white-space:nowrap}
+.labnav a:hover,.labnav a.active{color:var(--acc);text-decoration:none}
+.labnav .home{font-weight:600;letter-spacing:.1em;color:var(--ink)}
+.labnav .spacer{flex:1}
+.nav-btn{padding:.35rem .7rem;margin:0 .25rem;background:transparent;border:1px solid var(--rule2);color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.06em;cursor:pointer;border-radius:2px;transition:color .15s,border-color .15s;white-space:nowrap}
+.nav-btn:hover{color:var(--acc);border-color:var(--acc)}
+
+main{max-width:1060px;margin:0 auto;padding:0 2rem}
+section{border-top:1px solid var(--rule2);padding:3.6rem 0 1.6rem}
+section:first-child{border-top:none}
+section.hero{padding-top:4.2rem}
+
+.topbar{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:.4rem;font-family:'JetBrains Mono',monospace;font-size:.7rem;letter-spacing:.08em;color:var(--muted);margin-bottom:2.6rem}
+.dot{display:inline-block;width:7px;height:7px;background:var(--acc);border-radius:50%;margin-right:.5rem;vertical-align:middle;box-shadow:0 0 8px var(--acc)}
+.sec-label{font-family:'JetBrains Mono',monospace;font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--acc);margin-bottom:.55rem}
+.kicker{font-family:'JetBrains Mono',monospace;font-size:.72rem;letter-spacing:.1em;color:var(--muted);margin-bottom:.8rem}
+
+h1{font-size:clamp(2.3rem,5vw,3.7rem);font-weight:400;line-height:1.08;letter-spacing:-.02em;color:var(--ink);margin:0 0 1.4rem}
+h1 em{font-style:italic;color:var(--acc2)}
+h2{font-size:1.55rem;font-weight:400;line-height:1.22;margin:0 0 1.2rem;color:var(--ink);text-wrap:balance}
+h3{font-family:'JetBrains Mono',monospace;font-size:.8rem;letter-spacing:.08em;color:var(--ink2);text-transform:uppercase;margin:1.8rem 0 .6rem}
+p{margin:0 0 1.1rem}p:last-child{margin-bottom:0}
+.dek{font-size:1.1rem;line-height:1.7;color:var(--ink2);max-width:800px;margin-bottom:2.4rem}
+
+.stats-strip{display:flex;flex-wrap:wrap;border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);margin:2.4rem 0}
+.stat{flex:1;min-width:130px;padding:1rem 1.4rem;border-right:1px solid var(--rule2)}
+.stat:last-child{border-right:none}
+.stat .num{display:block;font-family:'JetBrains Mono',monospace;font-size:1.45rem;color:var(--acc);line-height:1;margin-bottom:.35rem}
+.stat .label{display:block;font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.06em;color:var(--muted);line-height:1.45}
+
+.marginalia{display:grid;grid-template-columns:8.5rem 1fr;gap:0 2.5rem;align-items:start}
+.marginalia .mlabel{font-family:'JetBrains Mono',monospace;font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);padding-top:.2rem;text-align:right}
+.marginalia .mbody{max-width:720px}
+
+.col-side{display:grid;grid-template-columns:1fr 20rem;gap:0 3rem;align-items:start}
+.aside{font-size:.89rem;line-height:1.68;color:var(--ink2);border-left:2px solid var(--acc);padding-left:1.2rem;margin-top:.4rem}
+.aside .kicker{margin-bottom:.4rem;color:var(--acc)}
+
+.pull{font-size:1.42rem;line-height:1.4;font-style:italic;color:var(--ink);border-top:1px solid var(--rule2);border-bottom:1px solid var(--rule2);padding:1.4rem 0;margin:2.4rem 0;max-width:820px;text-wrap:balance}
+
+.dropcap::first-letter{float:left;font-size:3.1em;line-height:.82;padding:.02em .12em 0 0;font-family:Newsreader,serif;color:var(--acc2);font-weight:500}
+.hl-acc{color:var(--acc2);font-style:italic}
+.hl-zone{color:var(--citron);font-family:'JetBrains Mono',monospace;font-size:.9em}
+.muted{color:var(--muted)}.small{font-size:.85rem}
+
+/* figures: framed on a constant dark "scan plate" in both themes */
+.fig{margin:1.8rem 0}
+.fig-plate{overflow-x:auto;border:1px solid var(--rule2);border-radius:4px;background:var(--bg2);padding:6px}
+.fig-plate img.fig-light{display:none}html.light .fig-plate img.fig-dark{display:none}html.light .fig-plate img.fig-light{display:block}
+.fig-plate img,.fig-plate svg{display:block;width:100%;height:auto}
+.fig-cap{font-family:'JetBrains Mono',monospace;font-size:.71rem;color:var(--muted);margin-top:.6rem;line-height:1.55;max-width:880px}
+.fig-cap b{color:var(--ink2);font-weight:600}
+.zone-note{font-family:'JetBrains Mono',monospace;font-size:.65rem;letter-spacing:.05em;color:var(--citron);margin:0 0 .4rem;opacity:.85}
+.fig.narrow .fig-plate{max-width:620px;margin:0 auto}
+
+/* specimen gallery — small multiples, all visible */
+.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:1.8rem 0 1rem}
+.spec{display:flex;flex-direction:column;border:1px solid var(--rule2);border-radius:4px;background:var(--bg2);overflow:hidden;transition:transform .15s,border-color .15s,box-shadow .15s}
+.spec:hover{transform:translateY(-3px) scale(1.015);border-color:var(--acc);box-shadow:0 10px 30px rgba(0,0,0,.35);z-index:2}
+.spec-plate{position:relative;aspect-ratio:3/4;background:var(--bg2);display:flex;align-items:center;justify-content:center}
+.spec-plate .band{position:absolute;left:0;right:0;top:36%;height:21%;background:rgba(227,194,74,.09);border-top:1px dashed rgba(227,194,74,.35);border-bottom:1px dashed rgba(227,194,74,.35)}
+.spec-plate .tok{font-family:'JetBrains Mono',monospace;font-size:.82rem;color:var(--acc2);letter-spacing:.04em;z-index:1}
+.spec-plate .slotnote{position:absolute;bottom:7px;left:0;right:0;text-align:center;font-family:'JetBrains Mono',monospace;font-size:.54rem;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+.spec-cap{padding:9px 11px;font-family:'JetBrains Mono',monospace;font-size:.62rem;line-height:1.5;color:var(--ink2)}
+.spec-cap .pair{color:var(--muted)}
+.spec.fail{border-color:var(--violet)}
+.spec.fail .spec-plate{outline:2px solid var(--violet);outline-offset:-2px}
+.spec.fail .tok{color:var(--violet)}
+.spec .tag{font-size:.55rem;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:3px}
+.spec.fail .tag{color:var(--violet)}
+
+.colophon{color:var(--ink2)}
+.colophon .mbody p{max-width:740px;font-size:.95rem}
+.foot{border-top:1px solid var(--rule2);margin-top:1rem;padding:1.4rem 0 4rem;font-family:'JetBrains Mono',monospace;font-size:.64rem;letter-spacing:.04em;color:var(--muted);line-height:1.7}
+
+@media(max-width:820px){
+  main{padding:0 1.2rem}
+  .col-side{grid-template-columns:1fr}
+  .aside{grid-row:1;margin:0 0 1.4rem;border-left:none;border-top:2px solid var(--acc);padding:.8rem 0 0}
+  .marginalia{grid-template-columns:1fr;gap:.15rem 0}
+  .marginalia .mlabel{text-align:left;margin-bottom:.15rem}
+  .gallery{grid-template-columns:repeat(2,1fr)}
+  .pull{font-size:1.2rem}
+}
+@media(max-width:480px){
+  h1{font-size:2rem}
+  .stat{min-width:50%;border-right:none;border-bottom:1px solid var(--rule2)}
+  .gallery{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<nav class="labnav">
+  <a class="home" href="index.html">THE VIVARIUM</a>
+  <a href="geometry.html" class="active">Geometry</a>
+  <a href="../vivisection-lab/index.html">Vivisection&nbsp;Lab</a>
+  <a href="methods.html">Methods</a>
+  <span class="spacer"></span>
+  <button class="nav-btn" id="themeBtn" type="button">&#9788; Light</button>
+</nav>
+
+<main>
+
+<!-- ══ HERO ══ -->
+<section class="hero" data-screen-label="Hero">
+  <div class="topbar">
+    <div><span class="dot"></span>Geometry · Gemma-4-12B-mxfp4 · base</div>
+    <div>48 layers · 6 probes · 12 languages · day-zero scan</div>
+  </div>
+  <div class="kicker">the vivarium · first specimen</div>
+  <h1>I probed Gemma-4-12B<br><em>the day it dropped.</em></h1>
+  <p class="dek">
+    Gemma 4 12B came out this afternoon. By the time the mxfp4 quant had landed on my drive
+    and I'd confirmed it wasn't a broken convert, I already had hidden-state scans running against
+    it. That's the whole pitch for this one: the method is fast enough to crack open a brand-new
+    model the same day it ships and watch it think — before anyone's had time to write the first
+    fine-tune. So that's what this is: a zero-day look inside a 48-layer dense model, while it
+    still has the plastic film on.
+  </p>
+  <div class="stats-strip">
+    <div class="stat"><span class="num">6</span><span class="label">Probe sets<br>six questions</span></div>
+    <div class="stat"><span class="num">L18–27</span><span class="label">The concept zone<br>all six land here</span></div>
+    <div class="stat"><span class="num">48</span><span class="label">Dense layers<br>mxfp4 quant</span></div>
+    <div class="stat"><span class="num">12</span><span class="label">Languages<br>7 writing systems</span></div>
+    <div class="stat"><span class="num">L47</span><span class="label">Final collapse<br>meaning → next token</span></div>
+  </div>
+  <div class="marginalia" style="margin-top:2rem">
+    <div class="mlabel">The question</div>
+    <div class="mbody">
+      <p>
+        I went in with one question: <em>what does the model already know, and when in the stack
+        does it know it?</em> I started with the interlingua scan we run on every new model — a
+        multilingual cosine sweep to find where language gets stripped and meaning takes over. After
+        seeing a result similar to Gemma-4-31B, I started wondering how much two sentences with
+        <em>completely different words but the same meaning</em> would converge in the mid-stack. That
+        one stray question kicked off about six hours of probes that kept pointing at the same place.
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══ THE ONE FINDING ══ -->
+<section data-screen-label="One finding">
+  <div class="sec-label">the one finding</div>
+  <h2>Six probes. One zone.</h2>
+  <div class="col-side">
+    <div>
+      <p class="dropcap">
+        Six probe sets, each built around a different question. Do paraphrases with different words
+        but the same meaning converge mid-stack? Does a one-word flip that reverses meaning actually
+        separate the vectors? When does an ambiguous token commit to one reading — and at which
+        layer? Does an inflection point survive past the sliding-attention window? Which kinds of
+        meaning survive translation across twelve languages? Where does word-sense disambiguation
+        live at dataset scale?
+      </p>
+      <p>
+        Every single one pointed at the same band of layers, roughly <span class="hl-zone">L18
+        through L27</span>. That band is where this model <em>does meaning</em>. Everything below it
+        is still mostly working with surface form — tokens, spelling, word identity. Everything above
+        it is already pivoting toward "what word comes next." The understanding lives in that middle
+        third.
+      </p>
+      <p>
+        I didn't design six probes to find one zone. I designed six probes to ask six different
+        questions, and the zone <span class="hl-acc">fell out of all of them.</span> That convergence
+        is the actual result; the demos below are just six camera angles on it.
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">Cross-bucket bridge</div>
+      <p>
+        The <span class="hl-zone">L18–27</span> concept zone here overlaps the layers the
+        <a href="../vivisection-lab/gemma.html">surgery sweep</a> next door found most productive to
+        duplicate. Observation and intervention aren't the same act — but when "where the meaning is"
+        and "where surgery pays" line up, that's a real bridge between the two notebooks.
+      </p>
+    </aside>
+  </div>
+
+  <div class="fig" id="fig-scan">
+    <div class="zone-note">▲ concept zone L18–27 · front and back of the stack are quiet</div>
+    <div class="fig-plate"><img class="fig-dark" src="figures/figConcept.svg" alt="Centered-cosine layer scan showing a similarity plateau across layers 18–27, with the front and back of the stack quieter."><img class="fig-light" src="figures/figConcept.light.svg" alt="Centered-cosine layer scan showing a similarity plateau across layers 18–27, with the front and back of the stack quieter."></div>
+    <p class="fig-cap"><b>Fig 1 — the establishing scan.</b> Centered-cosine similarity per layer. The plateau across L18–27 is where representations stabilize into meaning; the endpoints are still doing surface-form housekeeping. This is the shot everything else is a close-up of.</p>
+  </div>
+  <div class="fig">
+    <div class="fig-plate"><img class="fig-dark" src="figures/figDelta.svg" alt="Per-layer change in the hidden state; the middle of the stack shows the largest rewrite, the ends are quiet."><img class="fig-light" src="figures/figDelta.light.svg" alt="Per-layer change in the hidden state; the middle of the stack shows the largest rewrite, the ends are quiet."></div>
+    <p class="fig-cap"><b>Fig 2 — where the work happens.</b> Per-layer change in the residual stream (‖Δh‖). The front and back are quiet; the middle is where the stream is being rewritten the hardest. The endpoints move tokens around; the <b>middle does the thinking.</b></p>
+  </div>
+</section>
+
+<!-- ══ THE DETOUR ══ -->
+<section data-screen-label="Dead ends">
+  <div class="sec-label">a detour through dead ends</div>
+  <h2>Wrong turns, and one surprisingly good idea.</h2>
+  <div class="col-side">
+    <div>
+      <p>
+        Both the right instrument and the right probes took some finding, and the wrong turns are
+        half the story.
+      </p>
+      <p>
+        <b>The readout problem.</b> The first probes were paraphrase-invariance and sensitivity
+        tests — same meaning / different words, versus near-identical surface / flipped meaning, on
+        standard last-token cosine. The sensitivity probes came back flat. "The dog chased the cat"
+        versus "the cat chased the dog" barely moved the number. My instinct was to aggregate over
+        more tokens — mean-pool instead. That made it <em>worse</em>, and the reason was obvious once
+        I saw it: mean-pooling is <span class="hl-acc">permutation-invariant by construction.</span>
+        "Dog chased cat" and "cat chased dog" are the same multiset of tokens — averaging throws away
+        the word order that distinguishes them. I'd grabbed exactly the wrong tool for the one probe
+        I was trying to fix.
+      </p>
+      <p>
+        Both approaches had the same blind spot: collapsing the whole sequence to one number loses
+        <em>where</em> meaning diverges. The signal was in the data; I just couldn't see it. Which
+        finally surfaced the obvious question — <em>can we just show all of it?</em> Every token
+        position, every layer, similarity as color. Four axes of data collapse cleanly to a 2D
+        heatmap per sentence pair: layer on one axis, token on the other, cosine as color. Stack them
+        and you can read "which token, which layer" without guessing in advance. That instrument is
+        what made everything else visible.
+      </p>
+      <p>
+        <b>The homograph problem.</b> Now I needed good pairs. I asked for homophones and got
+        corrected immediately — I wanted <em>homographs</em>: words spelled the same, meaning
+        different things. And not just two different sentences that happen to share a token (that
+        proves nothing). I needed an <span class="hl-acc">inflection point</span> — a later token
+        whose meaning is set by something <em>earlier</em>, so that even though it's byte-for-byte
+        identical between two versions, it becomes the place the geometry diverges. Not a changed
+        token. A changed <em>reading</em> of an unchanged token. Two probes finally cracked it: "how
+        do you do" vs "how do you do <em>it</em>" (one trailing word flips ritual into question), and
+        the crane. The moment those worked, the frame clicked.
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">On probes as hypotheses</div>
+      <p>
+        A pretty metric that agrees with your story isn't evidence until it can also <em>fail.</em>
+        Half the work here was building probes that could come back null — and one that did (the
+        <a href="#specimens">Lead</a> counterexample) is kept in on purpose. The mean-pool dead end
+        is the same lesson from the other side: the wrong instrument will happily report "nothing
+        here" about a signal that's plainly present.
+      </p>
+    </aside>
+  </div>
+</section>
+
+<!-- ══ THE CRANE ══ -->
+<section data-screen-label="Crane">
+  <div class="sec-label">the sleeper token</div>
+  <h2>The crane that knew it was a bird.</h2>
+  <div class="col-side">
+    <div>
+      <p class="dropcap">
+        Take two sentences identical except for one early word — "All afternoon at the
+        <b>harbor</b>, we watched the crane" versus "…at the <b>marsh</b>, we watched the crane."
+        "Crane" is byte-for-byte the same token in both. A construction crane at the harbor, a bird
+        at the marsh — but the model reads the exact same characters. So when does its internal
+        representation of "crane" <em>split</em> between the two readings?
+      </p>
+      <p>
+        Not at the input. There, "crane" is "crane" — the vectors are identical. The split happens
+        <b>mid-stack</b>, layers deep, well after the word has been read. The model finishes reading
+        "crane," carries it forward unchanged for several layers, and <em>then</em> — somewhere in
+        the concept zone — decides which crane it is. You can watch the moment it decides.
+        <span class="hl-acc">Commitment lags the cue.</span>
+      </p>
+      <p>
+        It even survives distance. Push "harbor"/"marsh" and "crane" over a thousand tokens apart —
+        further than the model's sliding-attention window — and the split still happens. The early
+        word still recolors the later one. <span class="muted">(How that's possible is the next
+        section.)</span>
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">Reading the heatmap</div>
+      <p>
+        Tokens enter at the <b>top</b> and fall down through the stack (emb → L47). <b>Bright =
+        diverged</b> — where the two sentence versions split; dark = still identical. The
+        <span style="color:var(--citron)">citron</span> column is the injected difference
+        (harbor vs marsh) — diverged the whole way down. Watch the
+        <span style="color:var(--acc2)">cyan</span> "crane" column: dark (identical) through the
+        early layers, igniting only mid-stack — the model commits <em>after</em> reading the
+        context, not at input.
+      </p>
+    </aside>
+  </div>
+
+  <div class="fig narrow">
+    <div class="fig-plate"><img class="fig-dark" src="figures/figCrane.svg" alt="Per-token by per-layer divergence heatmap. The 'crane' column stays identical through early layers and ignites cyan in the mid-stack; the harbor/marsh column is diverged throughout."><img class="fig-light" src="figures/figCrane.light.svg" alt="Per-token by per-layer divergence heatmap. The 'crane' column stays identical through early layers and ignites cyan in the mid-stack; the harbor/marsh column is diverged throughout."></div>
+    <p class="fig-cap"><b>Fig 3 — the sleeper heatmap.</b> Per-token × per-layer divergence for two near-identical sentences, sequence-aligned so only matched positions are compared. The model knows "crane" is a bird before it finishes the sentence — and you can see the layer where it decides.</p>
+  </div>
+  <p class="pull">The model knows "crane" is a bird before it finishes the sentence — and you can see the layer where it decides.</p>
+</section>
+
+<!-- ══ TWO GATES ══ -->
+<section data-screen-label="Two gates">
+  <div class="sec-label">access ≠ computation</div>
+  <h2>Two different things called "understanding."</h2>
+  <div class="col-side">
+    <div>
+      <p>
+        The distance result forced a distinction I hadn't been careful about. There are two separate
+        things going on when a model understands a far-apart connection, and Gemma gates them
+        <span class="hl-acc">independently:</span>
+      </p>
+      <p>
+        <b>Access</b> — can the later token even <em>reach</em> the earlier one? That's an
+        attention-architecture question. Gemma 4 alternates sliding-window layers (local, cheap) with
+        global full-attention layers (the whole sequence). Past ~1024 tokens, only the global layers
+        can bridge the gap. <b>Computation</b> — once it has access, <em>where</em> does it actually
+        compute the meaning? That's a depth question, and the answer is the concept zone, ~L17 onward.
+      </p>
+      <p>
+        These are not the same axis. I expected the long-range version to show divergence turning on
+        at the first global-attention layer — access-gated, early. It doesn't. The onset is still
+        depth-gated, in the mid-stack, regardless of where the global layers sit. Access is
+        necessary, but it isn't where the understanding <em>happens.</em> You need both gates open,
+        and they're controlled by different knobs.
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">What the chart shows</div>
+      <p>
+        The vertical marks are the global-attention layers (5, 11, 17, 23, 29, 35, 41, 47) — the
+        architecture made visible. The long-range curve stays high far longer, but its divergence
+        onset still lands in the mid-stack, <em>not</em> at the first global line. If access drove
+        understanding, the drop would snap to that first mark. It doesn't.
+      </p>
+    </aside>
+  </div>
+  <div class="fig">
+    <div class="zone-note">▲ vertical marks = global-attention layers · onset is depth-gated, not access-gated</div>
+    <div class="fig-plate"><img class="fig-dark" src="figures/figStaircase.svg" alt="Short-range versus long-range callback: cosine at the shared token per layer, with global-attention layers marked. Both diverge in the mid-stack, not at the first global layer."><img class="fig-light" src="figures/figStaircase.light.svg" alt="Short-range versus long-range callback: cosine at the shared token per layer, with global-attention layers marked. Both diverge in the mid-stack, not at the first global layer."></div>
+    <p class="fig-cap"><b>Fig 4 — the staircase.</b> Short-range vs long-range (1112-token) callback, cosine at the shared token per layer. The global layers are marked; the divergence onset ignores them and lands in the concept zone anyway. <b>Access and computation are different gates.</b></p>
+  </div>
+</section>
+
+<!-- ══ MORE SPECIMENS ══ -->
+<section id="specimens" data-screen-label="Specimens">
+  <div class="sec-label">more specimens</div>
+  <h2>The crane is the cleanest, not the only one.</h2>
+  <p style="max-width:820px">
+    Eight more pairs from the same session — some nearly as crisp, some deliberately soft, one
+    control — plus a counterexample that shows what bad probe design looks like. A single pair could
+    be a special case; what makes it a <em>finding</em> is that the same shape — <span class="hl-acc">cold
+    early, heating in the concept zone</span> — keeps recurring, and when it doesn't, the reason is
+    legible. The shaded band on each is L17–27; the tracked token is named.
+  </p>
+
+  <!--BUILD NOTE (Claude Code): replace each .spec-plate's placeholder with figures/specimen_<name>.svg —
+      per-token × per-layer cosine heatmap (token x-axis, layer y-axis), cividis→cool ramp per the
+      COLOR-MAP SPEC at the bottom of this file, shaded band L17–27, tracked token marked.
+      Sentence strings for Shoot must be recovered from gemma4_12b_distance_heatmaps.png source pairs.
+      Keep the small-multiples layout + the .fail treatment on Lead. -->
+  <div class="gallery">
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">bank</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">closest to crane</span><span class="pair">"after the flood / heist, they hurried to the <b>bank</b>."</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">shoot</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">soft split ~0.70</span><span class="pair">camera vs rifle — senses bleed; distance-invariant</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">he · asked</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">downstream flip</span><span class="pair">"how do you do" / "…do <b>it</b>" — greeting vs question</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">novel</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">syntactic flip</span><span class="pair">"quite novel" / "quite <b>a</b> novel" — adj vs noun</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">fall</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">local · no delay</span><span class="pair">"when you fall" / "when <b>it's</b> fall"</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">late</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">control · word order</span><span class="pair">"he's late" / "your <b>late</b> father"</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">mean</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">structure + sense</span><span class="pair">"do you mean that" / "that's <b>mean</b>"</span></div></div>
+    <div class="spec"><div class="spec-plate"><div class="band"></div><div class="tok">battery</div><div class="slotnote">heatmap → CC</div></div><div class="spec-cap"><span class="tag">forward disambig.</span><span class="pair">barrage vs power cell — resolved by what <em>follows</em></span></div></div>
+  </div>
+  <div class="gallery" style="grid-template-columns:1fr;max-width:520px">
+    <div class="spec fail"><div class="spec-plate" style="aspect-ratio:16/5"><div class="tok">lead — ✕ doesn't work</div></div><div class="spec-cap"><span class="tag">counterexample · design lesson</span><span class="pair">"she will <b>lead</b> the team" / "pipes made of <b>lead</b>" — the sentences share almost nothing but the word, so −0.05 measures general dissimilarity, not disambiguation. A real minimal pair holds the frame constant and flips only the sense.</span></div></div>
+  </div>
+</section>
+
+<!-- ══ CROSS-LINGUAL ══ -->
+<section data-screen-label="Translation">
+  <div class="sec-label">what survives translation</div>
+  <h2>Math is the least universal language.</h2>
+  <div class="col-side">
+    <div>
+      <p>
+        The interlingua scan was the starting gun. This is the pointed version: take one sentence,
+        translate it into twelve languages across seven writing systems, and ask — at each layer, how
+        close together do all twelve land? High convergence means the model threw away the language
+        and kept the meaning. Then do it for four <em>kinds</em> of sentence: a concrete fact
+        ("the sun rises in the east"), an arithmetic one ("two plus three equals five"), an emotional
+        one ("she cried because she was sad"), and an abstract one ("freedom is more important than
+        money").
+      </p>
+      <p>
+        I'd have bet on concrete and numeric converging hardest — they feel the most universal. Two
+        plus three is five in every language, right? <span class="hl-acc">Backwards.</span> The order
+        is <b>abstract &gt; emotion &gt; concrete &gt; numeric.</b> The abstract, relational,
+        propositional sentences are the most language-invariant; arithmetic is the most
+        language-<em>locked</em> — it stays tied to its surface symbols the longest and converges the
+        least.
+      </p>
+      <p>
+        One reading: abstract propositions reduce to pure relationships between concepts, and that
+        relational structure is what survives once you strip the words. Arithmetic stays welded to
+        its tokens — "two," "plus," "equals." Whatever the explanation, the empirical result holds:
+        the meaning that crosses languages is relational, not concrete, and <span class="hl-acc">math
+        is the least universal thing in the building.</span>
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">Colorblind note</div>
+      <p>
+        This is the colorblind-critical figure — four lines. It carries distinct markers <em>and</em>
+        dash patterns per type, not color alone, and uses a CB-safe ramp. Don't drop the markers in
+        the SVG conversion: they're load-bearing for protan/deutan readers, not decoration.
+      </p>
+    </aside>
+  </div>
+  <div class="fig">
+    <div class="zone-note">▲ abstract on top · numeric at bottom · spread opens through the concept zone</div>
+    <div class="fig-plate"><img class="fig-dark" src="figures/figCrossLang.svg" alt="Four curves — abstract, emotion, concrete, numeric — of mean cross-lingual cosine per layer. Abstract converges most, numeric least, the spread widening through the concept zone."><img class="fig-light" src="figures/figCrossLang.light.svg" alt="Four curves — abstract, emotion, concrete, numeric — of mean cross-lingual cosine per layer. Abstract converges most, numeric least, the spread widening through the concept zone."></div>
+    <p class="fig-cap"><b>Fig 5 — cross-lingual convergence by type.</b> Mean cosine over all 66 language-pairs per layer, four sentence types. Abstract sits on top, numeric on the bottom, the gap opening through the concept zone. <b>The meaning that survives translation is relational, not concrete.</b></p>
+  </div>
+</section>
+
+<!-- ══ WiC ══ -->
+<section data-screen-label="WiC">
+  <div class="sec-label">same word, two senses</div>
+  <h2>Word-sense, computed in the middle.</h2>
+  <p style="max-width:820px">
+    One more, at dataset scale. The WiC task (Words-in-Context) gives pairs that use the same word in
+    either the same or a different sense — "river <em>bank</em>" vs "savings <em>bank</em>." I tracked
+    the target word and asked where same-sense and different-sense pairs separate the most. Peak
+    separation: <span class="hl-zone">L20</span> — right in the middle of the zone. Disambiguation
+    isn't an input lookup and it isn't a late decision; the model <em>builds</em> the separation
+    through the mid-stack, peaking at L20, then sheds it on the way to output.
+  </p>
+  <div class="fig">
+    <div class="fig-plate"><img class="fig-dark" src="figures/figWiC.svg" alt="Same-sense versus different-sense cosine bands across layers; together at the embedding layer, fanning apart to a peak gap at L20, then narrowing."><img class="fig-light" src="figures/figWiC.light.svg" alt="Same-sense versus different-sense cosine bands across layers; together at the embedding layer, fanning apart to a peak gap at L20, then narrowing."></div>
+    <p class="fig-cap"><b>Fig 6 — WiC sense bands.</b> Same-sense vs different-sense cosine across layers. The bands sit on top of each other at the embedding layer (the word is the same token), fan apart through the mid-stack to a peak gap at <b>L20</b>, then close again toward output. The zone, confirmed from a fourth direction.</p>
+  </div>
+</section>
+
+<!-- ══ L47 COLLAPSE ══ -->
+<section data-screen-label="Collapse">
+  <div class="sec-label">and then it throws it all away</div>
+  <h2>The last layer collapses everything.</h2>
+  <div class="col-side">
+    <div>
+      <p>
+        The last thing worth pointing at is the very top of the stack. After all of this — built
+        meaning, disambiguated senses, stripped language — the final layer
+        <span class="hl-zone">L47</span> <b>collapses</b> a lot of it. The representations that were
+        rich and semantic in the concept zone get reshaped into something else, and that something
+        else is "what token comes next." The last layer isn't holding the meaning; it's
+        <em>spending</em> it — converting understanding into a prediction.
+      </p>
+      <p>
+        It's a clean reminder that the model's job was never to understand the sentence. Understanding
+        is a <em>means.</em> The concept zone is where it lives; the top of the stack is where it gets
+        cashed out for the only thing the model is actually optimized to produce: the next word. You
+        can already see the drop at the right edge of the establishing scan
+        (<a href="#fig-scan">Fig 1</a>) — the plateau falls off a cliff at L47.
+      </p>
+    </div>
+    <aside class="aside">
+      <div class="kicker">Reused, not re-run</div>
+      <p>
+        No new figure here — the L47 collapse is already in the establishing scan, top of the page.
+        Naming it is the point: the same curve that opens the piece also closes it.
+      </p>
+    </aside>
+  </div>
+  <p class="pull">The model's job was never to understand the sentence. Understanding is a means; the last layer spends it on the next word.</p>
+</section>
+
+<!-- ══ WHAT THIS IS ══ -->
+<section data-screen-label="What this is">
+  <div class="sec-label">what this is</div>
+  <h2>First specimen in the vivarium.</h2>
+  <p style="max-width:820px">
+    The plan is to run this same battery — sleeper tokens, the two-gate staircase, cross-lingual
+    convergence, WiC, paraphrase invariance — across other models, and see which findings are
+    Gemma-specific and which are just <em>how transformers work.</em> Does every model put word-sense
+    at ~40% of its depth? Is the boundary between language and meaning a single layer or a gradient?
+    Is numeric always the most language-locked? Does everything collapse at the final layer? I don't
+    know yet — that's the next several entries. The method itself — how you pull per-layer hidden
+    states out of a running MLX model, the hooks, the cosine math, the token alignment — is over in
+    <a href="methods.html">Methods</a>, deliberately kept out of the way here. For now: a brand-new
+    twelve-billion-parameter model, opened up on its launch day, and a middle third of its layers
+    quietly doing all the thinking.
+  </p>
+</section>
+
+<!-- ══ COLOPHON ══ -->
+<section class="colophon" data-screen-label="Colophon">
+  <div class="sec-label">colophon</div>
+  <div class="marginalia">
+    <div class="mlabel">Credit</div>
+    <div class="mbody">
+      <p>
+        Scans run locally on Gemma-4-12B (mxfp4) via an MLX hidden-state hook; figures hand-built as
+        static SVG from the scan JSON, no chart libraries. WiC examples from Pilehvar &amp;
+        Camacho-Collados (2019), part of SuperGLUE (CC BY-NC). "Gemma" is a Google model under the
+        Gemma Terms of Use; this is an observational write-up, not a derivative model.
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<div class="foot">
+  <div style="max-width:1060px;margin:0 auto;padding:0 2rem">
+    © 2026 · The Vivarium · exploratory research notes, provided as-is, no warranty · writeups &amp; figures CC&nbsp;BY · uses cookieless analytics, no personal data collected
+  </div>
+</div>
+
+<script>
+const tb=document.getElementById('themeBtn');
+tb.addEventListener('click',()=>{const l=document.documentElement.classList.toggle('light');tb.innerHTML=l?'&#9790; Dark':'&#9788; Light';});
+</script>
+<script data-goatcounter="https://an0nya.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>
+
+<!--
+═══════════════════════════════════════════════════════════════════════════════
+ COLOR-MAP SPEC  — apply to every figure CC regenerates, so all charts match.
+═══════════════════════════════════════════════════════════════════════════════
+ THEME PRINCIPLE: every figure ships in TWO palettes — figX.svg (dark) and
+ figX.light.svg (light). The page swaps them on the .light class. Plate = the page
+ panel (var(--bg2)), so identical/quiet areas RECEDE toward the ground and DIVERGENCE
+ is always the high-contrast thing — bright on dark, DARK on light. Never CSS-invert.
+   token            DARK         LIGHT
+   plate/ground     #141D26      #E6EBEF   (identical heatmap cells = this)
+   grid/rule        #27323D      #D2DAE0
+   axis/muted       #6F7C88      #69757F
+   faint label      #8893A0      #7B8794      zero line  #3A4650 / #B4C0C8
+ Accents:
+   primary cyan  #4FB2C2      bright cyan   #6FCBD8 (igniting / payload token)
+   citron        #E3C24A      (the injected cause / perturbation)
+   violet        #B98AD6      (4th series / "this failed" treatment)
+   deep teal     #2E6F8E      slate-blue    #6E92C4
+
+ HEATMAPS (crane + the 8 specimens): per-token × per-layer divergence.
+   - Orientation: TOKENS ACROSS THE TOP, depth increasing DOWNWARD (emb→L47),
+     so each column reads as a token "falling" through the stack. (matches Fig 3)
+   - Ramp keyed to divergence (NOT raw cosine): identical recedes to ~#16222C
+     (near plate), diverged IGNITES bright. Default bright = cyan #6FCBD8.
+     The single injected/cause column ignites CITRON #E3C24A instead, so cause
+     vs. effect read as warm-vs-cool inside one chart.
+   - Mark the tracked column; shade the L17–27 band.
+
+ LINE CHARTS — CB-safe series assignment (markers + dash patterns REQUIRED,
+ colour is secondary; this is a protan/deutan-safe set, no red–green pair):
+   figCrossLang (4 types):  abstract = citron #E3C24A (solid, ●)
+                            emotion  = cyan   #4FB2C2 (dashed, ▲)
+                            concrete = slate  #6E92C4 (dash-dot, ■)
+                            numeric  = violet #B98AD6 (dotted, ◆)
+   figStaircase: short-range = slate #6E92C4 ; long-range = citron #E3C24A ;
+                 global-layer marks = #3A4650 thin verticals.
+   figWiC: same-sense = cyan #4FB2C2 ; different-sense = violet #B98AD6.
+
+ NOTE: figures/*.svg currently shipped are palette-REMAPPED stand-ins of the
+ earlier (warm) draft — good enough to ship, but regenerate from the scan JSON
+ for correct data. figCrane is faithful (real geometry, reoriented). figCrossLang
+ & figStaircase stand-ins collapse two series to citron — regenerate first.
+
+═══════════════════════════════════════════════════════════════════════════════
+ MOBILE FLOW NOTES (bake in the responsivization pass)
+═══════════════════════════════════════════════════════════════════════════════
+ - col-side / marginalia already collapse to single column < 820px; the aside
+   moves ABOVE its prose (border-left → border-top) so it reads as a lead-in.
+ - Wide LINE charts (figConcept, figDelta, figStaircase, figCrossLang, figWiC,
+   viewBox ~900 wide) are the real mobile problem. Two acceptable fixes:
+     (a) the planned AXIS-FLIP: regenerate a tall variant with layer on Y,
+         metric on X (genuine re-layout, NOT css rotate — labels/taps skew).
+         Anchor BOTH orientations with a fixed "L0→L47" label so depth direction
+         never flips meaning between desktop & mobile.
+     (b) interim: .fig-plate already scrolls-x; keep it, but add a faint
+         "scroll →" affordance < 820px.
+ - The CRANE heatmap is already tall/vertical-depth = mobile-friendly as-is;
+   no flip needed. Same will be true of the 8 specimen heatmaps (3:4 portrait).
+ - Specimen gallery: 4-up → 2-up < 820px → 1-up < 480px (already set). Hover-zoom
+   becomes tap-to-zoom on touch; consider a :focus-within rule so taps enlarge.
+ - stats-strip: 5-across → wraps → 2-across < 480px (already set).
+ - Keep figures on the constant scan-plate at all widths; never invert.
+-->
+</body>
+</html>
