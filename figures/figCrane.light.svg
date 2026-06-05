@@ -707,6 +707,6 @@
 <rect x="498" y="183.2" width="12" height="7.7" fill="#265e7d" stroke="none"/>
 <rect x="498" y="176.0" width="12" height="7.7" fill="#225979" stroke="none"/>
 <rect x="498" y="176" width="12" height="288" fill="none" stroke="#69757F" stroke-width="0.5"/>
-<text x="514" y="180" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A4853">identical</text>
-<text x="514" y="468" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A4853">diverged</text>
+<text x="514" y="180" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A4853">diverged</text>
+<text x="514" y="468" font-family="JetBrains Mono,monospace" font-size="8" fill="#3A4853">identical</text>
 </svg>
