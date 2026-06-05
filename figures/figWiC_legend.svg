@@ -1,0 +1,8 @@
+<svg viewBox="0 0 900 24" xmlns="http://www.w3.org/2000/svg">
+<line x1="20" x2="42" y1="12" y2="12" stroke="#4FB2C2" stroke-width="1.6"/>
+<rect x="29" y="10" width="4" height="4" fill="#4FB2C2"/>
+<text x="48" y="15.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">same sense (n=100)</text>
+<line x1="450" x2="472" y1="12" y2="12" stroke="#B98AD6" stroke-width="1.6"/>
+<circle cx="461" cy="12" r="2.2" fill="#B98AD6"/>
+<text x="478" y="15.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">different senses (n=100)</text>
+</svg>

@@ -1,0 +1,20 @@
+<svg viewBox="0 0 900 56" xmlns="http://www.w3.org/2000/svg">
+<line x1="20" x2="42" y1="12" y2="12" stroke="#4FB2C2" stroke-width="1.6"/>
+<circle cx="31" cy="12" r="2.2" fill="#4FB2C2"/>
+<text x="48" y="15.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">EN↔ZH fact (same content)</text>
+<line x1="20" x2="42" y1="28" y2="28" stroke="#E3C24A" stroke-width="1.6"/>
+<polygon points="31,25.1 33.2,28 31,30.9 28.8,28" fill="#E3C24A"/>
+<text x="48" y="31.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">EN↔ZH poem (same content)</text>
+<line x1="20" x2="42" y1="44" y2="44" stroke="#6FCBD8" stroke-width="1.6"/>
+<circle cx="31" cy="44" r="2.2" fill="#6FCBD8"/>
+<text x="48" y="47.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">EN paraphrase (same-lang)</text>
+<line x1="450" x2="472" y1="12" y2="12" stroke="#6E92C4" stroke-width="1.6"/>
+<rect x="459" y="10" width="4" height="4" fill="#6E92C4"/>
+<text x="478" y="15.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">EN↔FR fact (same content)</text>
+<line x1="450" x2="472" y1="28" y2="28" stroke="#6F7C88" stroke-width="1.6" stroke-dasharray="3 2"/>
+<circle cx="461" cy="28" r="2.2" fill="#6F7C88"/>
+<text x="478" y="31.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">same-lang diff-content</text>
+<line x1="450" x2="472" y1="44" y2="44" stroke="#B98AD6" stroke-width="1.6" stroke-dasharray="3 2"/>
+<circle cx="461" cy="44" r="2.2" fill="#B98AD6"/>
+<text x="478" y="47.5" font-family="JetBrains Mono,monospace" font-size="9.5" fill="#A4B0BC">EN↔ZH diff-content (floor)</text>
+</svg>
